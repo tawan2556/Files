@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการเอกสาร</title>
+    <!-- Google Fonts: Sarabun -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f0f4f8;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div id="app" class="w-full max-w-4xl p-4 md:p-8 bg-white shadow-xl rounded-lg">
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-blue-700">ระบบจัดการเอกสาร</h1>
+        </header>
+
+        <!-- Document Form Section -->
+        <div class="bg-gray-50 p-6 rounded-xl shadow-inner mb-8">
+            <h2 class="text-2xl font-bold text-blue-700 mb-4">เพิ่ม/แก้ไขเอกสาร</h2>
+            <form id="document-form" class="space-y-4">
+                <input type="hidden" id="doc-id">
+                <div>
+                    <label for="doc-code" class="block text-gray-700 font-semibold mb-1">รหัสเอกสาร</label>
+                    <input type="text" id="doc-code" name="docCode" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" required>
+                </div>
+                <div>
+                    <label for="doc-location" class="block text-gray-700 font-semibold mb-1">ตำแหน่ง</label>
+                    <select id="doc-location" name="docLocation" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" required>
+                        <option value="">เลือกตำแหน่ง</option>
+                        <option value="FC">FC</option>
+                        <option value="ผู้จัดการ">ผู้จัดการ</option>
+                        <option value="ผู้ช่วย">ผู้ช่วย</option>
+                        <option value="พนักงาน">พนักงาน</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="doc-name" class="block text-gray-700 font-semibold mb-1">ชื่อเอกสาร</label>
+                    <input type="text" id="doc-name" name="docName" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" required>
+                </div>
+                <div>
+                    <label for="doc-file" class="block text-gray-700 font-semibold mb-1">อัปโหลดเอกสาร</label>
+                    <input type="file" id="doc-file" name="docFile" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                    <span id="file-url-display" class="text-sm text-gray-500 mt-2 block"></span>
+                </div>
+                <div class="flex space-x-4">
+                    <button type="submit" id="save-btn" class="flex-1 bg-green-500 text-white font-bold py-3 rounded-lg hover:bg-green-600 transition-colors duration-300 shadow-md">
+                        บันทึก
+                    </button>
+                    <button type="button" id="clear-form-btn" class="flex-1 bg-gray-500 text-white font-bold py-3 rounded-lg hover:bg-gray-600 transition-colors duration-300 shadow-md">
+                        ยกเลิก
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Documents List Section -->
+        <div class="bg-gray-50 p-6 rounded-xl shadow-inner">
+            <h2 class="text-2xl font-bold text-blue-700 mb-4">รายการเอกสาร</h2>
+            <div class="overflow-x-auto">
+                <table id="document-table" class="min-w-full bg-white rounded-lg shadow-sm">
+                    <thead class="bg-blue-600 text-white">
+                        <tr>
+                            <th class="py-3 px-4 text-left">รหัส</th>
+                            <th class="py-3 px-4 text-left">ชื่อเอกสาร</th>
+                            <th class="py-3 px-4 text-left">ตำแหน่ง</th>
+                            <th class="py-3 px-4 text-left">ลิงก์เอกสาร</th>
+                            <th class="py-3 px-4 text-left">การดำเนินการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="document-table-body" class="divide-y divide-gray-200">
+                        <!-- Document rows will be inserted here by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // NOTE: Make sure to replace this URL with your new Web App URL after deploying the Google Apps Script.
+        const appScriptUrl = 'https://script.google.com/macros/s/AKfycby4OSAM3hoLPY6JiAbw2GxsZMmN3my7nQDIkCz8k0zYUsJ7d-R_ctGy40sAczO959WH/exec'; 
+        const accessPassword = '122527';
+        const loadingIndicator = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
+            }
+        });
+
+        // DOM Elements
+        const docForm = document.getElementById('document-form');
+        const docTableBody = document.getElementById('document-table-body');
+        const clearFormBtn = document.getElementById('clear-form-btn');
+        const fileUrlDisplay = document.getElementById('file-url-display');
+
+        // State
+        let documents = [];
+
+        // --- Data Fetching and Rendering ---
+
+        async function fetchDocuments() {
+            loadingIndicator.fire({
+                title: 'กำลังโหลดข้อมูล...'
+            });
+            try {
+                const response = await fetch(`${appScriptUrl}?type=read`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                documents = await response.json();
+                renderDocuments();
+                loadingIndicator.close();
+            } catch (error) {
+                console.error('Error fetching documents:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'โหลดข้อมูลล้มเหลว',
+                    html: `ไม่สามารถดึงข้อมูลเอกสารจาก Google Sheet ได้<br>
+                           โปรดตรวจสอบว่าคุณได้ปรับใช้ (Deploy) Google Apps Script เป็น Web App แล้ว<br>
+                           และตรวจสอบว่า URL ในโค้ด HTML นี้ถูกต้อง: <br>
+                           **<small>${appScriptUrl}</small>**`
+                });
+            }
+        }
+
+        function renderDocuments() {
+            docTableBody.innerHTML = '';
+            // New logic to ensure a single, correct entry is processed for each row
+            const groupedDocs = {};
+            documents.forEach(doc => {
+                // Assuming `รหัส` is a unique identifier. If not, another key should be used.
+                if (!groupedDocs[doc.รหัส]) {
+                    groupedDocs[doc.รหัส] = doc;
+                }
+            });
+
+            Object.values(groupedDocs).forEach(doc => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-100 transition-colors duration-200';
+                // Change: Use a direct link with target="_blank" to open files in a new tab.
+                const fileLink = doc.ไฟล์ ? `<a href="${doc.ไฟล์}" target="_blank" class="underline text-blue-500 hover:text-blue-700">เปิดไฟล์</a>` : 'ไม่มีไฟล์';
+                row.innerHTML = `
+                    <td class="py-3 px-4 text-sm font-medium text-gray-900">${doc.รหัส}</td>
+                    <td class="py-3 px-4 text-sm text-gray-500">${doc.ชื่อเอกสาร}</td>
+                    <td class="py-3 px-4 text-sm text-gray-500">${doc.ตำแหน่ง}</td>
+                    <td class="py-3 px-4 text-sm">${fileLink}</td>
+                    <td class="py-3 px-4 space-x-2">
+                        <button onclick="checkPassword('edit', '${doc.รหัส}')" class="bg-blue-500 text-white text-xs font-bold py-1.5 px-3 rounded-lg hover:bg-blue-600 transition-colors duration-200">
+                            แก้ไข
+                        </button>
+                        <button onclick="checkPassword('delete', '${doc.รหัส}')" class="bg-red-500 text-white text-xs font-bold py-1.5 px-3 rounded-lg hover:bg-red-600 transition-colors duration-200">
+                            ลบ
+                        </button>
+                    </td>
+                `;
+                docTableBody.appendChild(row);
+            });
+        }
+
+        // --- CRUD Operations ---
+
+        docForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            loadingIndicator.fire({
+                title: 'กำลังบันทึกข้อมูล...'
+            });
+
+            const docCode = document.getElementById('doc-code').value;
+            const docLocation = document.getElementById('doc-location').value;
+            const docName = document.getElementById('doc-name').value;
+            const docFile = document.getElementById('doc-file').files[0];
+            const isEditing = docForm.dataset.editing === 'true';
+
+            let fileUrl = document.getElementById('file-url-display').textContent;
+            if (docFile) {
+                fileUrl = await uploadFileToDrive(docFile);
+                if (!fileUrl) {
+                    loadingIndicator.close();
+                    Swal.fire('ข้อผิดพลาด', 'ไม่สามารถอัปโหลดไฟล์ได้', 'error');
+                    return;
+                }
+            }
+
+            const params = new URLSearchParams();
+            params.append('type', isEditing ? 'update' : 'create');
+            params.append('docCode', docCode);
+            params.append('docLocation', docLocation);
+            params.append('docName', docName);
+            params.append('docFileUrl', fileUrl);
+
+            try {
+                const response = await fetch(appScriptUrl, {
+                    method: 'POST',
+                    body: params
+                });
+                const result = await response.json();
+                if (result.success) {
+                    Swal.fire('สำเร็จ!', isEditing ? 'อัปเดตเอกสารแล้ว' : 'บันทึกเอกสารแล้ว', 'success');
+                    docForm.reset();
+                    fileUrlDisplay.textContent = '';
+                    docForm.dataset.editing = 'false';
+                    await fetchDocuments();
+                } else {
+                    Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error saving document:', error);
+                Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+            }
+        });
+
+        async function uploadFileToDrive(file) {
+            loadingIndicator.fire({ title: 'กำลังอัปโหลดไฟล์...' });
+            const uploadUrl = `${appScriptUrl}?type=upload`;
+            
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            
+            return new Promise((resolve, reject) => {
+                reader.onload = async () => {
+                    const base64Data = reader.result;
+                    const params = new URLSearchParams();
+                    params.append('filename', file.name);
+                    params.append('mimeType', file.type);
+                    params.append('base64Data', base64Data.split(',')[1]);
+                    
+                    try {
+                        const response = await fetch(uploadUrl, {
+                            method: 'POST',
+                            body: params
+                        });
+                        const result = await response.json();
+                        loadingIndicator.close();
+                        if (result.success) {
+                            resolve(result.fileUrl);
+                        } else {
+                            console.error('File upload failed:', result.error);
+                            reject(null);
+                        }
+                    } catch (error) {
+                        console.error('Error uploading file:', error);
+                        loadingIndicator.close();
+                        reject(null);
+                    }
+                };
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        async function checkPassword(action, docCode) {
+            const { value: password } = await Swal.fire({
+                title: 'กรุณาใส่รหัสผ่าน',
+                input: 'password',
+                inputPlaceholder: 'รหัสผ่าน',
+                inputAttributes: {
+                    maxlength: 6,
+                    autocapitalize: 'off',
+                    autocorrect: 'off'
+                },
+                showCancelButton: true,
+                confirmButtonText: 'ตกลง',
+                cancelButtonText: 'ยกเลิก'
+            });
+
+            if (password === accessPassword) {
+                if (action === 'edit') {
+                    editDocument(docCode);
+                } else if (action === 'delete') {
+                    deleteDocument(docCode);
+                }
+            } else if (password !== undefined) {
+                 Swal.fire('รหัสผ่านไม่ถูกต้อง', 'กรุณาลองใหม่อีกครั้ง', 'error');
+            }
+        }
+
+        function editDocument(docCode) {
+            const docToEdit = documents.find(doc => doc.รหัส === docCode);
+            if (docToEdit) {
+                document.getElementById('doc-id').value = docToEdit.รหัส;
+                document.getElementById('doc-code').value = docToEdit.รหัส;
+                // document.getElementById('doc-location').value = docToEdit.ตำแหน่ง;
+                document.getElementById('doc-location').value = docToEdit.ตำแหน่ง;
+                document.getElementById('doc-name').value = docToEdit.ชื่อเอกสาร;
+                fileUrlDisplay.textContent = docToEdit.ไฟล์ || '';
+                docForm.dataset.editing = 'true';
+                document.getElementById('doc-code').disabled = true;
+                Swal.fire('กำลังแก้ไข', 'คุณสามารถแก้ไขข้อมูลและอัปโหลดไฟล์ใหม่ได้', 'info');
+            }
+        }
+
+        async function deleteDocument(docCode) {
+            Swal.fire({
+                title: 'คุณแน่ใจหรือไม่?',
+                text: "คุณจะไม่สามารถกู้คืนเอกสารนี้ได้!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'ใช่, ลบเลย!',
+                cancelButtonText: 'ยกเลิก'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    loadingIndicator.fire({
+                        title: 'กำลังลบข้อมูล...'
+                    });
+                    const params = new URLSearchParams();
+                    params.append('type', 'delete');
+                    params.append('docCode', docCode);
+
+                    try {
+                        const response = await fetch(appScriptUrl, {
+                            method: 'POST',
+                            body: params
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            Swal.fire('ลบสำเร็จ!', 'เอกสารถูกลบเรียบร้อยแล้ว', 'success');
+                            await fetchDocuments();
+                        } else {
+                            Swal.fire('ข้อผิดพลาด', 'ไม่สามารถลบเอกสารได้: ' + result.error, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting document:', error);
+                        Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+                    }
+                }
+            });
+        }
+        
+        // The modal and its related functions are no longer needed
+        // as links now open directly in a new tab.
+
+        clearFormBtn.addEventListener('click', () => {
+            docForm.reset();
+            docForm.dataset.editing = 'false';
+            document.getElementById('doc-code').disabled = false;
+            fileUrlDisplay.textContent = '';
+        });
+
+        // Initial fetch on page load
+        fetchDocuments();
+
+    </script>
+</body>
+</html>

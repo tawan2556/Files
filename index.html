@@ -31,7 +31,7 @@
             <form id="document-form" class="space-y-4">
                 <input type="hidden" id="doc-id">
                 <div>
-                    <label for="doc-code" class="block text-gray-700 font-semibold mb-1">รหัสเอกสาร</label>
+                    <label for="doc-code" class="block text-gray-700 font-semibold mb-1">รหัส</label>
                     <input type="text" id="doc-code" name="docCode" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" required>
                 </div>
                 <div>
@@ -88,7 +88,7 @@
 
     <script>
         // NOTE: Make sure to replace this URL with your new Web App URL after deploying the Google Apps Script.
-        const appScriptUrl = 'https://script.google.com/macros/s/AKfycby4OSAM3hoLPY6JiAbw2GxsZMmN3my7nQDIkCz8k0zYUsJ7d-R_ctGy40sAczO959WH/exec'; 
+        const appScriptUrl = 'https://script.google.com/macros/s/AKfycby4OSAM3hoLPY6JiAbw2GxsZMmN3my7nQDIkCz8k0zYUsJ7d-R_ctGy40sAczO959WH/exec';
         const accessPassword = '122527';
         const loadingIndicator = Swal.mixin({
             toast: true,
@@ -198,7 +198,7 @@
 
             const params = new URLSearchParams();
             params.append('type', isEditing ? 'update' : 'create');
-            params.append('docCode', docCode);
+            params.append('docCode', docCode.trim()); // Trim the docCode here as well
             params.append('docLocation', docLocation);
             params.append('docName', docName);
             params.append('docFileUrl', fileUrl);
@@ -227,10 +227,10 @@
         async function uploadFileToDrive(file) {
             loadingIndicator.fire({ title: 'กำลังอัปโหลดไฟล์...' });
             const uploadUrl = `${appScriptUrl}?type=upload`;
-            
+
             const reader = new FileReader();
             reader.readAsDataURL(file);
-            
+
             return new Promise((resolve, reject) => {
                 reader.onload = async () => {
                     const base64Data = reader.result;
@@ -238,7 +238,7 @@
                     params.append('filename', file.name);
                     params.append('mimeType', file.type);
                     params.append('base64Data', base64Data.split(',')[1]);
-                    
+
                     try {
                         const response = await fetch(uploadUrl, {
                             method: 'POST',
@@ -289,7 +289,8 @@
         }
 
         function editDocument(docCode) {
-            const docToEdit = documents.find(doc => doc.รหัส === docCode);
+            // Fix: Check if doc.รหัส exists before attempting to convert and trim
+            const docToEdit = documents.find(doc => doc.รหัส && String(doc.รหัส).trim() === docCode.trim());
             if (docToEdit) {
                 document.getElementById('doc-id').value = docToEdit.รหัส;
                 document.getElementById('doc-code').value = docToEdit.รหัส;
@@ -300,6 +301,8 @@
                 docForm.dataset.editing = 'true';
                 document.getElementById('doc-code').disabled = true;
                 Swal.fire('กำลังแก้ไข', 'คุณสามารถแก้ไขข้อมูลและอัปโหลดไฟล์ใหม่ได้', 'info');
+            } else {
+                Swal.fire('ข้อผิดพลาด', 'ไม่พบเอกสารที่ต้องการแก้ไข', 'error');
             }
         }
 
@@ -320,8 +323,7 @@
                     });
                     const params = new URLSearchParams();
                     params.append('type', 'delete');
-                    params.append('docCode', docCode);
-
+                    params.append('docCode', docCode.trim()); // Trim the docCode before sending
                     try {
                         const response = await fetch(appScriptUrl, {
                             method: 'POST',
@@ -341,7 +343,7 @@
                 }
             });
         }
-        
+
         // The modal and its related functions are no longer needed
         // as links now open directly in a new tab.
 
